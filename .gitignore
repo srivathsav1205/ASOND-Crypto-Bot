@@ -1,0 +1,47 @@
+# Environment variables & secrets (never commit real credentials)
+.env
+.env.testnet
+.env.local
+.env.*.local
+!.env.example
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Temporary test logs & scratch artifacts
+tests/test_*.json
+tests/test_*.log
+tests/chrome_debug.log
+tests/*.png
+tests/*.log
+*.tmp*
+*.bak
+*.stale_bak
+*_old.md
+*.log
+bot_state_*.json
+bot_state_*.bak
+bot by gemini.py
+suite_output.txt
+dashboard_live_*.png
+
+# Local presentation & submission archives (kept local, excluded from public repo)
+docs/
+hackathon_submission/
+quarantine/
+evidence/
+
+# Historical market data bulk cache (downloaded on demand via backtest.py)
+data/
+
+# Virtual environments & IDE configurations
+venv/
+env/
+.venv/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -36,6 +36,8 @@ evidence/
 
 # Historical market data bulk cache (downloaded on demand via backtest.py)
 data/
+data_v2/
+positions*.json
 
 # Virtual environments & IDE configurations
 venv/

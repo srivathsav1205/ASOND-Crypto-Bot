@@ -3,482 +3,900 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; script-src 'self' https://s3.tradingview.com https://*.tradingview.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://*.tradingview.com; connect-src 'self'; frame-src https://*.tradingview.com;">
-  <title>Market-Aware Crypto Bot &bull; Real-Time Trading Terminal</title>
+  <title>Spot Execution Terminal</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230f172a'/%3E%3Cpath d='M6 22 L14 14 L18 18 L26 8' stroke='%2310b981' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='26' cy='8' r='2' fill='%2310b981'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script type="text/javascript" src="/static/tv.js" integrity="sha384-PrAUhlnhshqe64CQsL37sz1scuWsYLu/6j5GpdHGyGDqL+A47QxmNl0GX9jiUEUO"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #0a0e17;
-      --bg-card: #111827;
-      --bg-card-hover: #1f2937;
-      --border: #232d3f;
-      --text-main: #f3f4f6;
-      --text-muted: #9ca3af;
-      --accent-green: #10b981;
-      --accent-green-bg: rgba(16, 185, 129, 0.12);
-      --accent-red: #ef4444;
-      --accent-red-bg: rgba(239, 68, 68, 0.12);
-      --accent-blue: #3b82f6;
-      --accent-blue-bg: rgba(59, 130, 246, 0.12);
-      --accent-yellow: #f59e0b;
-      --accent-yellow-bg: rgba(245, 158, 11, 0.12);
-      --accent-purple: #8b5cf6;
+      --bg-base: #0b0e14;
+      --bg-panel: #111620;
+      --bg-panel-alt: #161c28;
+      --border-subtle: #1e2636;
+      --border-focus: #2d3748;
+      --text-main: #f1f5f9;
+      --text-muted: #64748b;
+      --text-secondary: #94a3b8;
+      --green-main: #10b981;
+      --green-tint: rgba(16, 185, 129, 0.08);
+      --red-main: #f43f5e;
+      --red-tint: rgba(244, 63, 94, 0.08);
+      --blue-main: #0284c7;
+      --blue-tint: rgba(2, 132, 199, 0.08);
+      --amber-main: #d97706;
+      --amber-tint: rgba(217, 119, 6, 0.08);
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      background-color: var(--bg-primary);
+      background-color: var(--bg-base);
       color: var(--text-main);
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      padding: 20px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
       line-height: 1.5;
+      padding: 16px 20px;
     }
 
-    .container { max-width: 1440px; margin: 0 auto; }
+    .container {
+      max-width: 1480px;
+      margin: 0 auto;
+    }
 
-    /* Header */
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+      gap: 12px;
     }
-    .header-title h1 {
-      font-size: 1.45rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .header-title p {
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      margin-top: 3px;
-    }
-    .status-badges {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .badge-green { background: var(--accent-green-bg); color: var(--accent-green); border: 1px solid var(--accent-green); }
-    .badge-red { background: var(--accent-red-bg); color: var(--accent-red); border: 1px solid var(--accent-red); }
-    .badge-blue { background: var(--accent-blue-bg); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
-    .badge-yellow { background: var(--accent-yellow-bg); color: var(--accent-yellow); border: 1px solid var(--accent-yellow); }
-    .btn-stop {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: var(--accent-red-bg);
-      color: var(--accent-red);
-      border: 1px solid var(--accent-red);
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    .btn-stop:hover {
-      background: var(--accent-red);
-      color: #fff;
-    }
-    .btn-stop:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
 
-    /* Metrics Grid (5 cards) */
-    .metrics-grid {
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      text-transform: uppercase;
+    }
+
+    .tag-green {
+      background: var(--green-tint);
+      color: var(--green-main);
+      border-color: rgba(16, 185, 129, 0.25);
+    }
+
+    .tag-blue {
+      background: var(--blue-tint);
+      color: var(--blue-main);
+      border-color: rgba(2, 132, 199, 0.25);
+    }
+
+    .tag-amber {
+      background: var(--amber-tint);
+      color: var(--amber-main);
+      border-color: rgba(217, 119, 6, 0.25);
+    }
+
+    .tag-red {
+      background: var(--red-tint);
+      color: var(--red-main);
+      border-color: rgba(244, 63, 94, 0.25);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-left: 20px;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.1s ease;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: var(--text-main);
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green-main);
+    }
+
+    button.btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-panel);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: background 0.1s ease, border-color 0.1s ease;
+    }
+
+    button.btn:hover {
+      background: var(--bg-panel-alt);
+      border-color: var(--border-focus);
+    }
+
+    button.btn-danger {
+      background: var(--red-tint);
+      color: var(--red-main);
+      border-color: rgba(244, 63, 94, 0.3);
+    }
+
+    button.btn-danger:hover {
+      background: var(--red-main);
+      color: #ffffff;
+    }
+
+    button.btn-warning {
+      background: var(--amber-tint);
+      color: var(--amber-main);
+      border-color: rgba(217, 119, 6, 0.3);
+    }
+
+    .metrics-bar {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
+      gap: 10px;
+      margin-bottom: 16px;
     }
-    .metric-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px 18px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
+
+    .metric-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 12px 14px;
     }
+
     .metric-label {
       color: var(--text-muted);
-      font-size: 0.75rem;
+      font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
     }
+
     .metric-value {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 1.45rem;
-      font-weight: 700;
-      margin-top: 6px;
-    }
-    .metric-sub {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-
-    /* Live Candlestick Chart Container */
-    .chart-section {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 20px;
-    }
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    .chart-title-area {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .chart-symbol-badge {
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--accent-blue);
-      background: var(--accent-blue-bg);
-      padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid rgba(59, 130, 246, 0.3);
-    }
-    .quick-coins {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    .coin-btn {
-      background: var(--bg-card-hover);
-      border: 1px solid var(--border);
-      color: var(--text-muted);
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-family: 'JetBrains Mono', monospace;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .coin-btn:hover, .coin-btn.active {
+      font-size: 17px;
+      font-weight: 600;
       color: var(--text-main);
-      border-color: var(--accent-blue);
-      background: var(--accent-blue-bg);
     }
 
-    #tv_chart_container {
-      height: 480px;
-      width: 100%;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    /* Lower Dashboard Grid (Leaderboard + Signals) */
-    .lower-grid {
-      display: grid;
-      grid-template-columns: 340px 1fr;
-      gap: 20px;
-    }
-    @media (max-width: 1024px) {
-      .lower-grid { grid-template-columns: 1fr; }
-    }
-
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 18px;
-      margin-bottom: 20px;
-    }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    .card-title {
-      font-size: 0.92rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* RS Leaderboard List */
-    .rs-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 8px;
-      border-radius: 6px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.77rem;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .rs-item:hover { background: var(--bg-card-hover); }
-    .rs-left { display: flex; align-items: baseline; gap: 6px; overflow: hidden; white-space: nowrap; }
-    .rs-sym { font-weight: 600; color: var(--text-main); font-size: 0.78rem; }
-    .rs-px { color: var(--text-muted); font-size: 0.72rem; }
-    .rs-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-    .rs-chg { color: var(--text-muted); font-size: 0.70rem; }
-    .rs-val-pos { color: var(--accent-green); font-weight: 600; font-size: 0.78rem; }
-    .rs-val-neg { color: var(--accent-red); font-weight: 600; font-size: 0.78rem; }
-    .rs-tab-btn {
-      background: transparent;
-      border: 1px solid transparent;
+    .metric-sub {
       color: var(--text-muted);
-      font-size: 0.7rem;
-      padding: 3px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.15s;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 2px;
     }
-    .rs-tab-btn.active {
-      background: var(--bg-card-hover) !important;
-      color: var(--text-main) !important;
-      border-color: var(--border) !important;
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+    }
+
+    .panel-body {
+      padding: 0;
+    }
+
+    .grid-duo {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 1080px) {
+      .grid-duo {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    table.data-table th {
+      text-align: left;
+      padding: 8px 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-panel-alt);
+    }
+
+    table.data-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+    }
+
+    table.data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .val-positive {
+      color: var(--green-main);
+    }
+
+    .val-negative {
+      color: var(--red-main);
+    }
+
+    .ladder-strip {
+      display: inline-flex;
+      gap: 3px;
+      margin-top: 3px;
+    }
+
+    .ladder-cell {
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 2px;
+      background: var(--bg-panel-alt);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .ladder-cell.reached {
+      background: var(--green-tint);
+      color: var(--green-main);
+      border-color: rgba(16, 185, 129, 0.3);
       font-weight: 600;
     }
 
-    /* Tables */
-    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-    th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; }
-    td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.03); font-family: 'JetBrains Mono', monospace; }
-    tr:hover td { background: var(--bg-card-hover); cursor: pointer; }
-
-    .score-pill {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 5px;
-      font-weight: 700;
-      font-size: 0.72rem;
-    }
-    .score-high { background: var(--accent-green-bg); color: var(--accent-green); }
-    .score-mid { background: var(--accent-yellow-bg); color: var(--accent-yellow); }
-    .score-low { background: var(--accent-red-bg); color: var(--accent-red); }
-
-    /* Event Feed */
-    .event-feed {
+    .event-stream {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
       max-height: 240px;
       overflow-y: auto;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.76rem;
-    }
-    .event-row {
-      padding: 7px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
+      padding: 8px 12px;
       display: flex;
-      gap: 12px;
+      flex-direction: column;
+      gap: 3px;
     }
-    .event-time { color: var(--text-muted); min-width: 70px; }
-    .event-msg { color: var(--text-main); word-break: break-word; }
+
+    .event-row {
+      padding: 3px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      color: var(--text-secondary);
+    }
+
+    .event-time {
+      color: var(--text-muted);
+      margin-right: 8px;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      font-size: 11px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 14px;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-main);
+      text-decoration: underline;
+    }
+
+    /* Modal / Document Views */
+    .view-container {
+      display: block;
+    }
+
+    .doc-page {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      padding: 24px 28px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .doc-page h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+
+    .doc-page p {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 14px;
+      line-height: 1.6;
+    }
+
+    .doc-page h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin: 16px 0 8px 0;
+      color: var(--text-main);
+    }
+
+    .doc-page ul {
+      margin-left: 20px;
+      margin-bottom: 14px;
+      color: var(--text-secondary);
+    }
+
+    .doc-page li {
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Header -->
     <header>
-      <div class="header-title">
-        <h1><span>⚡</span> Market-Aware Crypto Bot</h1>
-        <p>Quantitative Multi-Timeframe Breakout &bull; Relative Strength &bull; Real-Time Execution</p>
+      <div class="brand-section">
+        <div class="brand-title">Spot Execution Terminal</div>
+        <span id="badge-mode" class="tag tag-green">Dry Run</span>
+        <span id="badge-status" class="tag tag-blue">Running</span>
+        <div class="nav-links">
+          <a class="nav-link active" onclick="switchView('terminal')" id="nav-terminal">Terminal</a>
+          <a class="nav-link" onclick="switchView('privacy')" id="nav-privacy">Privacy Policy</a>
+          <a class="nav-link" onclick="switchView('terms')" id="nav-terms">Terms and Conditions</a>
+        </div>
       </div>
-      <div class="status-badges">
-        <div id="badge-mode" class="badge badge-green"><span class="pulse-dot"></span><span id="mode-text">SIGNAL-ONLY (PAPER)</span></div>
-        <div id="badge-btc" class="badge badge-blue"><span>BTC: CHECKING...</span></div>
-        <button id="btn-stop-bot" class="btn-stop" title="Safely stop the bot daemon">⏹ Stop Bot</button>
+      <div class="controls-group">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="lbl-conn-status">Socket Online</span>
+        </div>
+        <button id="btn-pause" class="btn btn-warning" onclick="sendAction('pause')">Pause</button>
+        <button id="btn-closeall" class="btn" onclick="sendAction('closeall')">Sell All Positions</button>
+        <button id="btn-kill" class="btn btn-danger" onclick="sendAction('kill')">Halt Engine</button>
       </div>
     </header>
 
-    <!-- Top 5 Live Metrics Cards -->
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <span class="metric-label">Strategy Capital</span>
-        <span class="metric-value" id="val-equity">--</span>
-        <span class="metric-sub" id="sub-free">Available: --</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">Amount Invested</span>
-        <span class="metric-value" style="color:var(--accent-blue);" id="val-invested">$0.00</span>
-        <span class="metric-sub" id="sub-invested-info">0 Open Positions</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">Win Rate %</span>
-        <span class="metric-value" id="val-winrate">0.0%</span>
-        <span class="metric-sub" id="sub-winrate-info">0 Wins / 0 Losses (0 Closed)</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">Realized PnL</span>
-        <span class="metric-value" id="val-realized-pnl">$0.00</span>
-        <span class="metric-sub" id="sub-day-pct">Net Profit/Loss</span>
-      </div>
-      <div class="metric-card">
-        <span class="metric-label">Active Universe</span>
-        <span class="metric-value" id="val-universe">--</span>
-        <span class="metric-sub">Liquid Spot Pairs (≥$1M vol)</span>
-      </div>
-    </div>
-
-    <!-- Real-Time Interactive Candlestick Chart Section -->
-    <div class="chart-section">
-      <div class="chart-header">
-        <div class="chart-title-area">
-          <span style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">MARKET CHART:</span>
-          <span class="chart-symbol-badge" id="chart-curr-symbol">BINANCE:BTCUSDT</span>
-          <span style="font-size:0.75rem; color:var(--text-muted);">(1H Candles &bull; TradingView Chart Widget)</span>
+    <!-- Main Terminal View -->
+    <div id="view-terminal" class="view-container">
+      <!-- Quantitative Metrics Bar -->
+      <div class="metrics-bar">
+        <div class="metric-panel">
+          <div class="metric-label">Exposure / Concurrency</div>
+          <div class="metric-value" id="val-open-count">0 / 20</div>
+          <div class="metric-sub" id="val-exposure-sub">$0.00 / $100.00 Cap</div>
         </div>
-        <div class="quick-coins">
-          <span style="font-size:0.75rem; color:var(--text-muted); margin-right:4px;">Quick Switch:</span>
-          <button class="coin-btn active" data-chart-symbol="BTCUSDT">BTC</button>
-          <button class="coin-btn" data-chart-symbol="ETHUSDT">ETH</button>
-          <button class="coin-btn" data-chart-symbol="SOLUSDT">SOL</button>
-          <button class="coin-btn" data-chart-symbol="BNBUSDT">BNB</button>
-          <button class="coin-btn" data-chart-symbol="DOGEUSDT">DOGE</button>
-          <button class="coin-btn" data-chart-symbol="XRPUSDT">XRP</button>
+        <div class="metric-panel">
+          <div class="metric-label">Realized Net PnL</div>
+          <div class="metric-value" id="val-realized">$0.00</div>
+          <div class="metric-sub" id="val-record-sub">0 Wins, 0 Losses</div>
         </div>
-      </div>
-      <div id="tv_chart_container"></div>
-    </div>
-
-    <!-- Lower Layout: RS Leaderboard + Signals/Trades -->
-    <div class="lower-grid">
-      <!-- Left Column: RS Leaderboard & Strategy Engine -->
-      <div>
-        <div class="card">
-          <div class="card-header" style="flex-wrap:wrap; gap:6px;">
-            <div style="display:flex; align-items:center; gap:8px;">
-              <span class="card-title">🔥 Relative Strength vs BTC</span>
-              <span id="rs-live-badge" style="font-size:0.68rem; background:rgba(34,197,94,0.12); color:var(--accent-green); padding:2px 6px; border-radius:4px; font-weight:600;">● LIVE BINANCE</span>
-            </div>
-            <span style="font-size:0.72rem; color:var(--text-muted);" id="rs-age-text">Syncing...</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.72rem; color:var(--text-muted); padding:4px 0 8px 0; border-bottom:1px solid var(--border);">
-            <span id="rs-benchmark-text">Benchmark: BTC 24h: <strong>--</strong></span>
-            <div class="tab-group" style="display:flex; gap:4px;">
-              <button class="rs-tab-btn active" id="rs-tab-leaders" type="button">Top Leaders</button>
-              <button class="rs-tab-btn" id="rs-tab-major" type="button">Major Coins</button>
-            </div>
-          </div>
-          <div id="rs-list" style="margin-top:6px;">
-            <div style="color:var(--text-muted); font-size:0.82rem; padding:6px 0;">Scanning live tickers...</div>
-          </div>
-          <div style="font-size:0.68rem; color:var(--text-muted); margin-top:8px; text-align:right;">
-            Formula: RS = Coin 24h% − BTC 24h% &bull; Click coin to view chart
-          </div>
+        <div class="metric-panel">
+          <div class="metric-label">Active Positions PnL</div>
+          <div class="metric-value" id="val-unrealized">$0.00</div>
+          <div class="metric-sub" id="val-unrealized-sub">0.00% Return</div>
         </div>
-
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">🛡️ Strategy Configuration</span>
-          </div>
-          <div style="font-size:0.8rem; color:var(--text-muted); display:flex; flex-direction:column; gap:8px;">
-            <div style="display:flex; justify-content:space-between;"><span>Execution Mode:</span> <strong style="color:var(--text-main);" id="cfg-mode">Signal-Only (Paper)</strong></div>
-            <div style="display:flex; justify-content:space-between;"><span>Position Size:</span> <strong style="color:var(--text-main);" id="cfg-size">$20.00 Notional</strong></div>
-            <div style="display:flex; justify-content:space-between;"><span>Profit Target:</span> <strong style="color:var(--accent-green);">Dynamic 2:1 (2R)</strong></div>
-            <div style="display:flex; justify-content:space-between;"><span>Macro Gate:</span> <strong style="color:var(--text-main);">BTC 4H 50-EMA</strong></div>
-            <div style="display:flex; justify-content:space-between;"><span>Leader Filter:</span> <strong style="color:var(--text-main);">RS &gt; 0.0% vs BTC (ENABLE_RS_FILTER=true)</strong></div>
-          </div>
+        <div class="metric-panel">
+          <div class="metric-label">Parked Holdings PnL</div>
+          <div class="metric-value" id="val-hold-pnl">$0.00</div>
+          <div class="metric-sub" id="val-hold-sub">0 Bags (Drawdown &ge; 20%)</div>
+        </div>
+        <div class="metric-panel">
+          <div class="metric-label">Operational Uptime</div>
+          <div class="metric-value" id="val-uptime">0h 0m</div>
+          <div class="metric-sub" id="val-pairs-sub">Scanning 395 Pairs</div>
         </div>
       </div>
 
-      <!-- Right Column: Active Positions, Signals/Trades & Event Log -->
-      <div>
-        <div class="card" id="open-positions-card">
-          <div class="card-header">
-            <span class="card-title">⚡ Active Open Positions</span>
-            <span style="font-size:0.75rem; color:var(--text-muted);" id="active-pos-count">0 active</span>
+      <!-- Active Open Positions -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Active Open Positions</div>
+          <span id="badge-pos-count" class="tag tag-green">0 Open</span>
+        </div>
+        <div class="panel-body" style="overflow-x: auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Entry Price</th>
+                <th>Mark Price</th>
+                <th>Unrealized PnL</th>
+                <th>Ladder Target / Trailing Stop</th>
+                <th>Signal Detail</th>
+                <th>Order Action</th>
+              </tr>
+            </thead>
+            <tbody id="tbl-positions">
+              <tr>
+                <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 18px;">
+                  No active open positions. Awaiting volatility trigger across scanned pairs.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Grid: Holdings and Cooldown -->
+      <div class="grid-duo">
+        <!-- Long-Term Holdings -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Parked Holdings (Drawdown &ge; 20%)</div>
+            <span id="badge-hold-count" class="tag tag-amber">0 Bags</span>
           </div>
-          <div style="overflow-x:auto;">
-            <table>
+          <div class="panel-body" style="overflow-x: auto;">
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Symbol</th>
-                  <th>Quantity</th>
-                  <th>Entry</th>
-                  <th>Mark</th>
-                  <th>Unrealized PnL</th>
-                  <th>Action</th>
+                  <th>Cost Basis</th>
+                  <th>Current Price</th>
+                  <th>Drawdown</th>
+                  <th>Unrealized Loss</th>
+                  <th>Parked Timestamp</th>
                 </tr>
               </thead>
-              <tbody id="positions-body">
-                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:12px;">No active positions</td></tr>
+              <tbody id="tbl-holdings">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">
+                    No positions parked into holdings.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">🎯 Live Signals & Trades</span>
-            <span style="font-size:0.75rem; color:var(--text-muted);" id="trade-count">0 recorded</span>
+        <!-- Cooldown List -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">48-Hour Cooldown Filter</div>
+            <span id="badge-cd-count" class="tag tag-blue">0 Symbols</span>
           </div>
-          <div style="overflow-x:auto;">
-            <table>
+          <div class="panel-body" style="overflow-x: auto;">
+            <table class="data-table">
               <thead>
                 <tr>
-                  <th>Time</th>
                   <th>Symbol</th>
-                  <th>Status</th>
-                  <th>Entry</th>
-                  <th>Stop</th>
-                  <th>Target (2R)</th>
-                  <th>Scorecard</th>
+                  <th>Cooldown Time Remaining</th>
                 </tr>
               </thead>
-              <tbody id="trades-body">
-                <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:16px;">Scanning pairs for breakouts...</td></tr>
+              <tbody id="tbl-cooldown">
+                <tr>
+                  <td colspan="2" style="text-align: center; color: var(--text-muted); padding: 16px;">
+                    No symbols currently restricted by cooldown.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grid: Signals Stream and Event Log -->
+      <div class="grid-duo">
+        <!-- Volatility Signals Stream -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Real-Time Volatility Signals Stream</div>
+            <span class="tag tag-blue">Live Kline Feed</span>
+          </div>
+          <div class="panel-body" style="overflow-x: auto; max-height: 260px; overflow-y: auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Symbol</th>
+                  <th>Candle Spike</th>
+                  <th>24h Delta</th>
+                  <th>Trigger Price</th>
+                  <th>Execution Verdict</th>
+                </tr>
+              </thead>
+              <tbody id="tbl-signals">
+                <tr>
+                  <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">
+                    Monitoring 1-minute and 1-second price action across universe.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">&#128203; Live Activity Log</span>
-            <span style="font-size:0.72rem; color:var(--text-muted);">Real-time Events</span>
+        <!-- Event Log -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">Execution Event Log</div>
           </div>
-          <div class="event-feed" id="event-feed">
-            <div class="event-row">
-              <span class="event-time">--:--:--</span>
-              <span class="event-msg">Connecting to bot service...</span>
+          <div class="panel-body">
+            <div class="event-stream" id="box-events">
+              <div class="event-row">Connecting to execution engine socket...</div>
             </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Privacy Policy View -->
+    <div id="view-privacy" class="doc-page">
+      <h2>Privacy Policy</h2>
+      <p>Last updated: November 7, 2026</p>
+      
+      <h3>1. Data Processing and Architecture</h3>
+      <p>
+        The Spot Execution Terminal is a local execution client designed for algorithmic cryptocurrency spot order management. 
+        All market telemetry, order state, API keys, and positions are stored strictly on your local hardware or server instance. 
+        No private telemetry, transaction data, or cryptographic keys are dispatched to third-party aggregation endpoints.
+      </p>
+
+      <h3>2. Exchange Connectivity</h3>
+      <p>
+        Connection to external exchanges (e.g. Binance Spot API and WebSocket services) is conducted through direct TLS-encrypted 
+        transport using your user-provided credentials. Network traffic is restricted strictly to sanctioned exchange endpoints 
+        for ticker subscription, balance queries, and order submission.
+      </p>
+
+      <h3>3. Local Persistence and Cookies</h3>
+      <p>
+        Application state is persisted using local flat files (e.g. positions.json) and browser sessionStorage. 
+        No tracking cookies, external analytics pixels, or commercial surveillance mechanisms are embedded in this application.
+      </p>
+
+      <button class="btn" onclick="switchView('terminal')" style="margin-top: 12px;">Return to Terminal</button>
+    </div>
+
+    <!-- Terms and Conditions View -->
+    <div id="view-terms" class="doc-page">
+      <h2>Terms and Conditions</h2>
+      <p>Last updated: November 7, 2026</p>
+
+      <h3>1. Risk Disclosure and Financial Advice</h3>
+      <p>
+        Cryptocurrency trading involves substantial risk of capital loss and extreme price volatility. 
+        The Spot Execution Terminal is an algorithmic software execution tool, not a registered investment advisor, broker, or financial manager. 
+        Nothing contained within this interface constitutes investment advice or a solicitation to buy or sell digital assets.
+      </p>
+
+      <h3>2. Operational Disclaimers</h3>
+      <p>
+        Users are solely responsible for setting position sizing, stop-loss rules, slippage tolerances, and capital allocation. 
+        The software authors and maintainers assume no liability for slippage, exchange rate limits, connectivity disruptions, 
+        API downtime, or liquidation events occurring during paper or live execution.
+      </p>
+
+      <h3>3. Native Exchange Stops and Disconnects</h3>
+      <p>
+        While ratcheting stops are calculated locally and may be submitted to the exchange, network latency and exchange engine maintenance 
+        can impair trade execution. Regular monitoring and manual risk limits are strictly recommended.
+      </p>
+
+      <button class="btn" onclick="switchView('terminal')" style="margin-top: 12px;">Return to Terminal</button>
+    </div>
+
+    <footer>
+      <div>
+        <span>Spot Execution Terminal</span> | <span>Local Instance: 127.0.0.1:8767</span>
+      </div>
+      <div class="footer-links">
+        <a onclick="switchView('terminal')">Terminal</a>
+        <a onclick="switchView('privacy')">Privacy Policy</a>
+        <a onclick="switchView('terms')">Terms and Conditions</a>
+      </div>
+    </footer>
   </div>
 
-  <script src="/static/dashboard.js?v=3.1"></script>
+  <script>
+    function switchView(viewName) {
+      document.getElementById('view-terminal').style.display = (viewName === 'terminal') ? 'block' : 'none';
+      document.getElementById('view-privacy').style.display = (viewName === 'privacy') ? 'block' : 'none';
+      document.getElementById('view-terms').style.display = (viewName === 'terms') ? 'block' : 'none';
+
+      document.getElementById('nav-terminal').className = 'nav-link' + (viewName === 'terminal' ? ' active' : '');
+      document.getElementById('nav-privacy').className = 'nav-link' + (viewName === 'privacy' ? ' active' : '');
+      document.getElementById('nav-terms').className = 'nav-link' + (viewName === 'terms' ? ' active' : '');
+
+      window.scrollTo(0, 0);
+    }
+
+    // Support direct hash navigation
+    function checkHash() {
+      const hash = window.location.hash.replace('#', '');
+      if (['terminal', 'privacy', 'terms'].includes(hash)) {
+        switchView(hash);
+      }
+    }
+    window.addEventListener('hashchange', checkHash);
+    checkHash();
+
+    async function fetchState() {
+      try {
+        const res = await fetch('/api/state', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        render(data);
+        document.getElementById('lbl-conn-status').innerText = 'Socket Online';
+        document.querySelector('.status-dot').style.background = 'var(--green-main)';
+      } catch (err) {
+        document.getElementById('lbl-conn-status').innerText = 'Reconnecting...';
+        document.querySelector('.status-dot').style.background = 'var(--amber-main)';
+      }
+    }
+
+    function formatNumber(n, decimals=2) {
+      if (n === null || n === undefined || isNaN(n)) return '--';
+      const num = Number(n);
+      if (num === 0) return '0.00';
+      if (Math.abs(num) < 0.0001) {
+        return num.toFixed(8);
+      }
+      return num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+
+    function render(s) {
+      // Header badges
+      const badgeMode = document.getElementById('badge-mode');
+      badgeMode.innerText = s.mode ? s.mode.toUpperCase() : 'DRY RUN';
+      badgeMode.className = 'tag ' + (s.mode === 'live' ? 'tag-red' : 'tag-green');
+
+      const badgeStatus = document.getElementById('badge-status');
+      badgeStatus.innerText = s.status ? s.status.toUpperCase() : 'RUNNING';
+      badgeStatus.className = 'tag ' + (s.status === 'running' ? 'tag-blue' : 'tag-amber');
+
+      const btnPause = document.getElementById('btn-pause');
+      if (s.status === 'paused') {
+        btnPause.innerText = 'Resume';
+        btnPause.className = 'btn btn-green';
+        btnPause.onclick = () => sendAction('resume');
+      } else {
+        btnPause.innerText = 'Pause';
+        btnPause.className = 'btn btn-warning';
+        btnPause.onclick = () => sendAction('pause');
+      }
+
+      document.getElementById('val-pairs-sub').innerText = `Scanning ${s.pairs || 0} Pairs`;
+
+      // Uptime
+      const up = Math.floor(s.uptime || 0);
+      const uph = Math.floor(up / 3600);
+      const upm = Math.floor((up % 3600) / 60);
+      document.getElementById('val-uptime').innerText = `${uph}h ${upm}m`;
+
+      // KPI Bar
+      const k = s.kpi || {};
+      document.getElementById('val-open-count').innerText = `${k.open || 0} / ${k.max_open || 20}`;
+      document.getElementById('val-exposure-sub').innerText = `$${formatNumber(k.exposure)} / $${formatNumber(k.cap)} Cap`;
+      
+      const real = Number(k.realized || 0);
+      const elReal = document.getElementById('val-realized');
+      elReal.innerText = `${real >= 0 ? '+' : ''}$${formatNumber(real, 4)}`;
+      elReal.className = 'metric-value ' + (real >= 0 ? 'val-positive' : 'val-negative');
+      document.getElementById('val-record-sub').innerText = `${k.wins || 0} Wins, ${k.losses || 0} Losses`;
+
+      const unk = Number(k.unrealized || 0);
+      const elUnk = document.getElementById('val-unrealized');
+      elUnk.innerText = `${unk >= 0 ? '+' : ''}$${formatNumber(unk, 4)}`;
+      elUnk.className = 'metric-value ' + (unk >= 0 ? 'val-positive' : 'val-negative');
+
+      const holdUnk = Number(k.hold_unrealized || 0);
+      const elHoldUnk = document.getElementById('val-hold-pnl');
+      elHoldUnk.innerText = `${holdUnk >= 0 ? '+' : ''}$${formatNumber(holdUnk, 4)}`;
+      elHoldUnk.className = 'metric-value ' + (holdUnk >= 0 ? 'val-positive' : 'val-negative');
+      document.getElementById('val-hold-sub').innerText = `${(s.holdings || []).length} Bags (Drawdown >= 20%)`;
+
+      // Active Positions Table
+      const pos = s.positions || [];
+      document.getElementById('badge-pos-count').innerText = `${pos.length} Open`;
+      const tbodyPos = document.getElementById('tbl-positions');
+      if (pos.length === 0) {
+        tbodyPos.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 18px;">No active open positions. Awaiting volatility trigger across scanned pairs.</td></tr>';
+      } else {
+        tbodyPos.innerHTML = pos.map(p => {
+          const pct = Number(p.pct || 0);
+          const pnl = Number(p.pnl || 0);
+          const targets = p.targets || [3, 5, 10, 15, 25, 50];
+          const hit = p.hit || 0;
+          const stopText = p.stop ? `$${formatNumber(p.stop, 4)} (${p.stop_label || 'Stop'})` : 'No stop before Target 1';
+
+          const ladderHtml = targets.map((t, idx) => {
+            const isHit = idx < hit;
+            return `<span class="ladder-cell ${isHit ? 'reached' : ''}">+${t}%</span>`;
+          }).join('');
+
+          return `<tr>
+            <td><strong>${p.sym}</strong></td>
+            <td>$${formatNumber(p.buy, 8)}</td>
+            <td>$${formatNumber(p.now, 8)}</td>
+            <td class="${pnl >= 0 ? 'val-positive' : 'val-negative'}"><strong>${pnl >= 0 ? '+' : ''}$${formatNumber(pnl, 4)} (${pct >= 0 ? '+' : ''}${formatNumber(pct, 2)}%)</strong></td>
+            <td>
+              <div><small>Next: $${formatNumber(p.next, 8)} | Stop: ${stopText}</small></div>
+              <div class="ladder-strip">${ladderHtml}</div>
+            </td>
+            <td><small style="color:var(--text-muted);">${p.trigger || '--'}</small></td>
+            <td>
+              <button class="btn btn-danger" style="padding: 3px 7px; font-size: 10px;" onclick="sendAction('sell', '${p.sym}')">Close</button>
+            </td>
+          </tr>`;
+        }).join('');
+      }
+
+      // Holdings Table
+      const hold = s.holdings || [];
+      document.getElementById('badge-hold-count').innerText = `${hold.length} Bags`;
+      const tbodyHold = document.getElementById('tbl-holdings');
+      if (hold.length === 0) {
+        tbodyHold.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">No positions parked into holdings.</td></tr>';
+      } else {
+        tbodyHold.innerHTML = hold.map(h => {
+          const pct = Number(h.pct || 0);
+          const pnl = Number(h.pnl || 0);
+          const dt = h.held_at ? new Date(h.held_at * 1000).toLocaleTimeString() : '--';
+          return `<tr>
+            <td><strong>${h.sym}</strong></td>
+            <td>$${formatNumber(h.buy, 8)}</td>
+            <td>$${formatNumber(h.now, 8)}</td>
+            <td class="${pct >= 0 ? 'val-positive' : 'val-negative'}">${pct >= 0 ? '+' : ''}${formatNumber(pct, 2)}%</td>
+            <td class="${pnl >= 0 ? 'val-positive' : 'val-negative'}">${pnl >= 0 ? '+' : ''}$${formatNumber(pnl, 4)}</td>
+            <td><small style="color:var(--text-muted);">${dt}</small></td>
+          </tr>`;
+        }).join('');
+      }
+
+      // Cooldown Table
+      const cd = s.cooldown || [];
+      document.getElementById('badge-cd-count').innerText = `${cd.length} Symbols`;
+      const tbodyCd = document.getElementById('tbl-cooldown');
+      if (cd.length === 0) {
+        tbodyCd.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted); padding: 16px;">No symbols currently restricted by cooldown.</td></tr>';
+      } else {
+        tbodyCd.innerHTML = cd.map(c => {
+          const mins = Math.floor(c.left / 60);
+          const hrs = (c.left / 3600).toFixed(1);
+          return `<tr>
+            <td><strong>${c.sym}</strong></td>
+            <td><small>${hrs}h remaining (${mins}m)</small></td>
+          </tr>`;
+        }).join('');
+      }
+
+      // Signals Stream Table
+      const sigs = s.signals || [];
+      const tbodySig = document.getElementById('tbl-signals');
+      if (sigs.length === 0) {
+        tbodySig.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 16px;">Monitoring 1-minute and 1-second price action across universe.</td></tr>';
+      } else {
+        tbodySig.innerHTML = sigs.slice(0, 30).map(sig => {
+          const d = new Date(sig.t * 1000).toLocaleTimeString();
+          const isBuy = sig.result === 'BUY';
+          return `<tr>
+            <td><small style="color:var(--text-muted);">${d}</small></td>
+            <td><strong>${sig.sym}</strong></td>
+            <td class="val-positive">+${formatNumber(sig.chg)}% (${sig.iv})</td>
+            <td class="${sig.ch24 >= 0 ? 'val-positive' : 'val-negative'}">${sig.ch24 >= 0 ? '+' : ''}${formatNumber(sig.ch24)}%</td>
+            <td>$${formatNumber(sig.price, 8)}</td>
+            <td><span class="tag ${isBuy ? 'tag-green' : 'tag-amber'}">${sig.result}</span></td>
+          </tr>`;
+        }).join('');
+      }
+
+      // Activity Event Stream
+      const evBox = document.getElementById('box-events');
+      const events = s.events || [];
+      if (events.length > 0) {
+        evBox.innerHTML = events.slice(0, 40).map(e => {
+          const txt = typeof e === 'string' ? e : (e.text || JSON.stringify(e));
+          const timeStr = (e && e.t) ? new Date(e.t * 1000).toLocaleTimeString() : '';
+          return `<div class="event-row"><span class="event-time">${timeStr}</span><span>${txt}</span></div>`;
+        }).join('');
+      }
+    }
+
+    async function sendAction(action, id=null) {
+      if (action === 'kill' && !confirm('Halt execution engine? New entries will be blocked.')) return;
+      if (action === 'closeall' && !confirm('Market-sell every active open position?')) return;
+      if (action === 'sell' && !confirm(`Market-sell position for ${id}?`)) return;
+
+      try {
+        const res = await fetch('/api/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-bot': '1' },
+          body: JSON.stringify({ action: action, id: id })
+        });
+        const ans = await res.json();
+        alert(ans.message || 'Action acknowledged');
+        fetchState();
+      } catch (err) {
+        alert('Action dispatch failed: ' + err.message);
+      }
+    }
+
+    // Initialize auto-polling loop every 1.5 seconds
+    setInterval(fetchState, 1500);
+    fetchState();
+  </script>
 </body>
 </html>

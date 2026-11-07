@@ -372,8 +372,8 @@ class BacktestEngine:
                 setup_1h["bars_waited"] += 1
                 setup_1h["swing_low"] = min(setup_1h["swing_low"], float(candle_1h[3]))
                 lev = setup_1h["level"]
-                near = (float(candle_1h[3]) <= lev + 0.25 * a_1h) and (float(candle_1h[3]) >= lev - 0.75 * a_1h)
-                confirms = near and (cclose_1h > lev) and (cclose_1h > float(h1[i-1][2]))
+                # Retest pullback touch condition (candle_1h[3] <= lev + 0.25*a_1h) removed per user instruction
+                confirms = (cclose_1h > lev) and (cclose_1h > float(h1[i-1][2]))
 
                 if setup_1h["bars_waited"] > 6 or cclose_1h < lev - 0.75 * a_1h:
                     setup_1h = None

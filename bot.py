@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Binance Spot pump scalper
+Binance Spot pump scalper (Asond Crypto Bot)
 -------------------------
 * Scans 1m and 1s klines of every USDT spot pair (bStocks *BUSDT pairs excluded).
 * BUY  : 1m candle up >= PUMP_1M_PCT  OR  1s candle up >= PUMP_1S_PCT  (vs candle open)

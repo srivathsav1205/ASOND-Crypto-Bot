@@ -1,12 +1,12 @@
-# Binance Spot Pump Scalper and Execution Terminal
-### Automated Real-Time Volatility Capture Engine with Multi-Tier Ratcheting Ladder Exits
+# Asond Crypto Bot
+### Institutional Binance Spot Volatility Capture Engine and Execution Terminal
 
 [![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://python.org)
 [![Exchange](https://img.shields.io/badge/Exchange-Binance%20Spot-F0B90B.svg?logo=binance&logoColor=black)](https://binance.com)
 [![Mode](https://img.shields.io/badge/Execution%20Mode-Paper%20Trading%20(DRY%20RUN)-green.svg)](#quickstart-guide)
 [![License](https://img.shields.io/badge/License-MIT-gray.svg)](LICENSE)
 
-An institutional-grade cryptocurrency execution engine built for Binance Spot. Designed for high-frequency volatility spike capture across all active USDT pairs, multi-stream WebSocket market monitoring, six-tier ratcheting ladder stop exits, automated capital recycling, and an integrated real-time web execution terminal.
+Asond Crypto Bot is an institutional-grade cryptocurrency execution engine built for Binance Spot. Designed for high-frequency volatility spike capture across all active USDT pairs, multi-stream WebSocket market monitoring, six-tier ratcheting ladder stop exits, automated capital recycling, and an integrated real-time web execution terminal.
 
 ---
 

@@ -900,14 +900,14 @@ class Bot:
                 self.last_buy[sym] = time.time() - SYMBOL_COOLDOWN_SEC + 300
 
     # ── ladder stop-loss (from the VAMSI bot) ──
-    # Each trade keeps the ladder it was bought with (so .env changes only affect new trades)
+    # Positions synchronize dynamically with current LADDER_TARGETS
     @staticmethod
     def p_targets(p):
-        return [Decimal(str(x)) for x in p["targets"]] if p.get("targets") else LADDER_TARGETS
+        return LADDER_TARGETS
 
     @staticmethod
     def p_first_stop(p):
-        return Decimal(str(p["first_stop_pct"])) if p.get("first_stop_pct") is not None else LADDER_FIRST_STOP_PCT
+        return LADDER_FIRST_STOP_PCT
 
     @staticmethod
     def p_stop_mode(p):

@@ -299,18 +299,21 @@
     }
 
     .ladder-strip {
-      display: inline-flex;
+      display: flex;
+      flex-wrap: wrap;
       gap: 3px;
-      margin-top: 3px;
+      margin-top: 4px;
+      max-width: 360px;
     }
 
     .ladder-cell {
-      font-size: 10px;
-      padding: 1px 5px;
+      font-size: 9.5px;
+      padding: 1px 4px;
       border-radius: 2px;
       background: var(--bg-panel-alt);
       color: var(--text-muted);
       border: 1px solid var(--border-subtle);
+      white-space: nowrap;
     }
 
     .ladder-cell.reached {
@@ -778,7 +781,7 @@
         tbodyPos.innerHTML = pos.map(p => {
           const pct = Number(p.pct || 0);
           const pnl = Number(p.pnl || 0);
-          const targets = p.targets || [3, 5, 10, 15, 25, 50];
+          const targets = (p.targets && p.targets.length) ? p.targets : [2.5, 4.5, 6.5, 8.5, 11, 14, 18, 24, 32, 45, 65, 100];
           const hit = p.hit || 0;
           const stopText = p.stop ? `$${formatNumber(p.stop, 4)} (${p.stop_label || 'Stop'})` : 'No stop before Target 1';
 

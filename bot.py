@@ -77,8 +77,8 @@ HOLD_DRAWDOWN_PCT = Decimal(_env("HOLD_DRAWDOWN_PCT", "20"))
 # Don't buy a coin again while it sits in the long-term holdings
 SKIP_HELD_COINS = _bool("SKIP_HELD_COINS", "true")
 # Optional stop-loss: cancel TP and market-sell when price is STOP_LOSS_PCT below buy price
-STOP_LOSS_ENABLED = _bool("STOP_LOSS_ENABLED", "false")
-STOP_LOSS_PCT = Decimal(_env("STOP_LOSS_PCT", "3"))
+STOP_LOSS_ENABLED = _bool("STOP_LOSS_ENABLED", "true")
+STOP_LOSS_PCT = Decimal(_env("STOP_LOSS_PCT", "1.5"))
 # Don't buy coins on Binance's 24h "Losers" list (24h change below MIN_24H_CHANGE_PCT)
 SKIP_24H_LOSERS = _bool("SKIP_24H_LOSERS", "true")
 MIN_24H_CHANGE_PCT = float(_env("MIN_24H_CHANGE_PCT", "0"))    # 0 = any coin that is down over 24h is skipped
@@ -617,6 +617,13 @@ class Bot:
         # older state files have no last_buy: seed the cooldown from open trades
         for sym, p in list(self.positions.items()) + list(self.holdings.items()):
             self.last_buy[sym] = max(self.last_buy.get(sym, 0), float(p.get("opened_at", 0)))
+        # synchronize stop_loss on existing ladder positions if no targets hit yet
+        if STOP_LOSS_ENABLED and STOP_LOSS_PCT > 0:
+            for sym, p in self.positions.items():
+                if p.get("mode") == "ladder" and p.get("targets_hit", 0) == 0:
+                    buy = Decimal(p["buy_price"])
+                    p["stop_label"] = f"-{fmt(STOP_LOSS_PCT)}%"
+                    p["stop_price"] = fmt(buy * (Decimal(1) - STOP_LOSS_PCT / Decimal(100)))
         log.info("loaded %d open positions, %d holdings from %s",
                  len(self.positions), len(self.holdings), STATE_FILE)
         if self.startup_notes:
@@ -1050,6 +1057,8 @@ class Bot:
                 action = "ladder_sell"
             elif self.targets_reached(p, px) > p.get("targets_hit", 0):
                 action = "target"
+            elif STOP_LOSS_ENABLED and STOP_LOSS_PCT > 0 and p.get("targets_hit", 0) == 0 and drop >= STOP_LOSS_PCT:
+                action = "ladder_sell"
             elif not stop and HOLD_DRAWDOWN_PCT > 0 and drop >= HOLD_DRAWDOWN_PCT:
                 action = "hold"
             else:
@@ -1104,7 +1113,8 @@ class Bot:
             if await self._cancel_order(sym, p) == "filled":
                 return
             if action == "ladder_sell":
-                title = f"LADDER STOP {p.get('stop_label')}"
+                label = p.get("stop_label") or (f"-{fmt(STOP_LOSS_PCT)}%" if STOP_LOSS_ENABLED else "")
+                title = f"LADDER STOP {label}".strip()
                 if await self.market_exit(sym, p, "🔴" if drop > 0 else "🟢", title):
                     return
             elif action == "stoploss":

@@ -261,6 +261,22 @@
       }
     }
 
+    /* Modern Sleek Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-light);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
     table.data-table {
       width: 100%;
       border-collapse: collapse;
@@ -277,6 +293,9 @@
       letter-spacing: 0.05em;
       border-bottom: 1px solid var(--border-subtle);
       background: var(--bg-panel-alt);
+      position: sticky;
+      top: 0;
+      z-index: 2;
     }
 
     table.data-table td {
@@ -479,7 +498,7 @@
           <div class="panel-title">Active Open Positions</div>
           <span id="badge-pos-count" class="tag tag-green">0 Open</span>
         </div>
-        <div class="panel-body" style="overflow-x: auto;">
+        <div class="panel-body" style="overflow-x: auto; max-height: 280px; overflow-y: auto;">
           <table class="data-table">
             <thead>
               <tr>
@@ -511,7 +530,7 @@
             <div class="panel-title">Parked Holdings (Drawdown &ge; 20%)</div>
             <span id="badge-hold-count" class="tag tag-amber">0 Bags</span>
           </div>
-          <div class="panel-body" style="overflow-x: auto;">
+          <div class="panel-body" style="overflow-x: auto; max-height: 240px; overflow-y: auto;">
             <table class="data-table">
               <thead>
                 <tr>
@@ -540,7 +559,7 @@
             <div class="panel-title">48-Hour Cooldown Filter</div>
             <span id="badge-cd-count" class="tag tag-blue">0 Symbols</span>
           </div>
-          <div class="panel-body" style="overflow-x: auto;">
+          <div class="panel-body" style="overflow-x: auto; max-height: 240px; overflow-y: auto;">
             <table class="data-table">
               <thead>
                 <tr>
@@ -785,6 +804,13 @@
           const hit = p.hit || 0;
           const stopText = p.stop ? `$${formatNumber(p.stop, 4)} (${p.stop_label || 'Stop'})` : 'No stop before Target 1';
 
+          let timeStopText = '';
+          if (hit === 0 && p.held !== undefined) {
+            const remSec = Math.max(0, 900 - Math.floor(p.held));
+            const remMin = Math.ceil(remSec / 60);
+            timeStopText = ` | <span style="color:var(--amber-main); font-weight:500;">15m Stop: ${remMin}m left</span>`;
+          }
+
           const ladderHtml = targets.map((t, idx) => {
             const isHit = idx < hit;
             return `<span class="ladder-cell ${isHit ? 'reached' : ''}">+${t}%</span>`;
@@ -796,7 +822,7 @@
             <td>$${formatNumber(p.now, 8)}</td>
             <td class="${pnl >= 0 ? 'val-positive' : 'val-negative'}"><strong>${pnl >= 0 ? '+' : ''}$${formatNumber(pnl, 4)} (${pct >= 0 ? '+' : ''}${formatNumber(pct, 2)}%)</strong></td>
             <td>
-              <div><small>Next: $${formatNumber(p.next, 8)} | Stop: ${stopText}</small></div>
+              <div><small>Next: $${formatNumber(p.next, 8)} | Stop: ${stopText}${timeStopText}</small></div>
               <div class="ladder-strip">${ladderHtml}</div>
             </td>
             <td><small style="color:var(--text-muted);">${p.trigger || '--'}</small></td>

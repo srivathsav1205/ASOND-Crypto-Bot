@@ -79,6 +79,9 @@ SKIP_HELD_COINS = _bool("SKIP_HELD_COINS", "true")
 # Optional stop-loss: cancel TP and market-sell when price is STOP_LOSS_PCT below buy price
 STOP_LOSS_ENABLED = _bool("STOP_LOSS_ENABLED", "true")
 STOP_LOSS_PCT = Decimal(_env("STOP_LOSS_PCT", "1.5"))
+# 15-Minute Time Stop: sell at market if Target 1 is not reached within TIME_STOP_MINUTES
+ENABLE_TIME_STOP = _bool("ENABLE_TIME_STOP", "true")
+TIME_STOP_MINUTES = int(_env("TIME_STOP_MINUTES", "15"))
 # Don't buy coins on Binance's 24h "Losers" list (24h change below MIN_24H_CHANGE_PCT)
 SKIP_24H_LOSERS = _bool("SKIP_24H_LOSERS", "true")
 MIN_24H_CHANGE_PCT = float(_env("MIN_24H_CHANGE_PCT", "0"))    # 0 = any coin that is down over 24h is skipped
@@ -1051,18 +1054,24 @@ class Bot:
             return
         px = Decimal(str(price))
         drop = (buy - px) / buy * 100      # % below buy price
+        now_ts = time.time()
+        age_sec = now_ts - float(p.get("opened_at", now_ts))
         if p.get("mode") == "ladder":
             stop = p.get("stop_price")
             if stop and px <= Decimal(stop):
                 action = "ladder_sell"
             elif self.targets_reached(p, px) > p.get("targets_hit", 0):
                 action = "target"
+            elif ENABLE_TIME_STOP and TIME_STOP_MINUTES > 0 and p.get("targets_hit", 0) == 0 and age_sec >= TIME_STOP_MINUTES * 60:
+                action = "time_stop"
             elif STOP_LOSS_ENABLED and STOP_LOSS_PCT > 0 and p.get("targets_hit", 0) == 0 and drop >= STOP_LOSS_PCT:
                 action = "ladder_sell"
             elif not stop and HOLD_DRAWDOWN_PCT > 0 and drop >= HOLD_DRAWDOWN_PCT:
                 action = "hold"
             else:
                 return
+        elif ENABLE_TIME_STOP and TIME_STOP_MINUTES > 0 and age_sec >= TIME_STOP_MINUTES * 60:
+            action = "time_stop"
         elif STOP_LOSS_ENABLED and STOP_LOSS_PCT > 0 and drop >= STOP_LOSS_PCT:
             action = "stoploss"
         elif HOLD_DRAWDOWN_PCT > 0 and drop >= HOLD_DRAWDOWN_PCT:
@@ -1115,6 +1124,10 @@ class Bot:
             if action == "ladder_sell":
                 label = p.get("stop_label") or (f"-{fmt(STOP_LOSS_PCT)}%" if STOP_LOSS_ENABLED else "")
                 title = f"LADDER STOP {label}".strip()
+                if await self.market_exit(sym, p, "🔴" if drop > 0 else "🟢", title):
+                    return
+            elif action == "time_stop":
+                title = f"TIME STOP ({TIME_STOP_MINUTES}m)"
                 if await self.market_exit(sym, p, "🔴" if drop > 0 else "🟢", title):
                     return
             elif action == "stoploss":
@@ -1630,6 +1643,7 @@ class Bot:
                                         if LADDER_STOP_MODE == "previous" else "at the target hit"),
                 "Sell at last target": LADDER_SELL_AT_LAST, "Stop order on Binance": LADDER_EXCHANGE_STOP,
                 "Stop-loss before T1": f"-{fmt(STOP_LOSS_PCT)}%" if STOP_LOSS_ENABLED else "off",
+                "15m Time Stop": f"{TIME_STOP_MINUTES} min (if no T1)" if ENABLE_TIME_STOP else "off",
                 "Long-term hold at": f"-{fmt(HOLD_DRAWDOWN_PCT)}%" if HOLD_DRAWDOWN_PCT > 0 else "off",
                 "Skip coins in holdings": SKIP_HELD_COINS,
                 "Skip 24h losers": f"yes, below {MIN_24H_CHANGE_PCT:g}%" if SKIP_24H_LOSERS else "no",
@@ -1761,7 +1775,8 @@ class Bot:
                f"{' · stop on Binance' if LADDER_EXCHANGE_STOP else ''}"
                f"{(' · stop trails 1 target (T1 → +' + fmt(LADDER_FIRST_STOP_PCT) + '%)') if LADDER_STOP_MODE == 'previous' else ''}"
                if EXIT_MODE == "ladder" else f"TP +{fmt(TAKE_PROFIT_PCT)}%") + " · "
-            f"{('stop-loss -' + fmt(STOP_LOSS_PCT) + '%') if STOP_LOSS_ENABLED else 'no stop-loss before T1' if EXIT_MODE == 'ladder' else 'no stop-loss'}\n"
+            f"{('stop-loss -' + fmt(STOP_LOSS_PCT) + '%') if STOP_LOSS_ENABLED else 'no stop-loss before T1' if EXIT_MODE == 'ladder' else 'no stop-loss'}"
+            f"{(' · 15m time stop') if ENABLE_TIME_STOP else ''}\n"
             f"Hold at -{fmt(HOLD_DRAWDOWN_PCT)}% (TP cancelled, kept long-term) · "
             f"Cooldown {SYMBOL_COOLDOWN_SEC // 3600}h per coin"
             f"{(' · skip 24h losers (below ' + format(MIN_24H_CHANGE_PCT, 'g') + '%)') if SKIP_24H_LOSERS else ''}\n"

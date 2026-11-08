@@ -396,6 +396,9 @@ class TgBot:
 
     async def sender(self):
         while True:
+            if not self.chat_id:
+                await asyncio.sleep(1)
+                continue
             kind, text, markup, png = await self.q.get()
             try:
                 if kind == "photo":
@@ -448,7 +451,8 @@ class TgBot:
             cmds = [{"command": c, "description": d} for c, d in COMMANDS
                     if self.can_control or "/" + c in VIEW_CMDS]
             await self._call("setMyCommands", {"commands": cmds})
-            await self._call("setChatMenuButton", {"chat_id": self.chat_id, "menu_button": {"type": "commands"}})
+            if self.chat_id:
+                await self._call("setChatMenuButton", {"chat_id": self.chat_id, "menu_button": {"type": "commands"}})
             log.info("[%s] telegram ready as @%s%s", self.name, self.username,
                      "" if self.can_control else " (view-only)")
         except Exception as e:
@@ -484,6 +488,8 @@ class TgBot:
                 q = u["callback_query"]
                 chat = str(((q.get("message") or {}).get("chat") or {}).get("id"))
                 data = q.get("data", "")
+                if not self.chat_id and chat:
+                    self.chat_id = chat
                 if chat != self.chat_id:
                     return
                 if not self.can_control and not data.startswith("v:"):
@@ -498,6 +504,18 @@ class TgBot:
             text = (m.get("text") or "").strip()
             if not text:
                 return
+            if not self.chat_id and chat:
+                self.chat_id = chat
+                log.info("[%s] auto-detected and linked Telegram chat ID: %s", self.name, self.chat_id)
+                try:
+                    with open(".env", "r", encoding="utf-8") as env_f:
+                        env_txt = env_f.read()
+                    import re
+                    env_txt = re.sub(r"TELEGRAM_CHAT_ID=.*", f"TELEGRAM_CHAT_ID={self.chat_id}", env_txt)
+                    with open(".env", "w", encoding="utf-8") as env_f:
+                        env_f.write(env_txt)
+                except Exception as e:
+                    log.warning("failed to persist TELEGRAM_CHAT_ID: %r", e)
             if chat != self.chat_id:
                 log.info("[%s] telegram: ignored message from chat %s", self.name, chat)
                 return
@@ -522,7 +540,7 @@ class Telegram:
 
     def __init__(self, session):
         self.bots = []
-        if TG_TOKEN and TG_CHAT_ID:
+        if TG_TOKEN:
             self.bots.append(TgBot(session, TG_TOKEN, TG_CHAT_ID, "main", True))
         for i, (tok, chat, ctl) in enumerate(TG_EXTRA_BOTS, 1):
             self.bots.append(TgBot(session, tok, chat, f"extra{i}", ctl))

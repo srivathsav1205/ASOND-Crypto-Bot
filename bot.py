@@ -12,7 +12,7 @@ Binance Spot pump scalper (Asond Crypto Bot)
          (LADDER_EXCHANGE_STOP) so it still protects the trade if the PC / bot is off.
          Before Target 1: stop = -STOP_LOSS_PCT if STOP_LOSS_ENABLED, otherwise none (20% hold rule).
 * SELL (EXIT_MODE=tp) : limit sell placed immediately at +TAKE_PROFIT_PCT over the average fill price.
-* COOLDOWN : a coin is not bought again for SYMBOL_COOLDOWN_SEC (default 48h) after a buy.
+* COOLDOWN : a coin is not bought again for SYMBOL_COOLDOWN_SEC (default 24h) after a buy.
              Survives restarts (saved in positions.json).
 * HOLD : if price falls HOLD_DRAWDOWN_PCT (default 20%) below the buy price, the TP order
          is cancelled and the coin is kept as a long-term holding (never sold by the bot).
@@ -71,7 +71,7 @@ PUMP_1M_PCT = float(_env("PUMP_1M_PCT", "5"))
 PUMP_1S_PCT = float(_env("PUMP_1S_PCT", "1"))
 TAKE_PROFIT_PCT = Decimal(_env("TAKE_PROFIT_PCT", "2"))
 MAX_OPEN_TRADES = int(_env("MAX_OPEN_TRADES", "20"))
-SYMBOL_COOLDOWN_SEC = int(_env("SYMBOL_COOLDOWN_SEC", str(48 * 3600)))   # 48 hours
+SYMBOL_COOLDOWN_SEC = int(_env("SYMBOL_COOLDOWN_SEC", str(24 * 3600)))   # 24 hours
 # Price drop (from buy price) that turns a trade into a long-term holding (TP cancelled). 0 = off
 HOLD_DRAWDOWN_PCT = Decimal(_env("HOLD_DRAWDOWN_PCT", "20"))
 # Don't buy a coin again while it sits in the long-term holdings
@@ -324,7 +324,7 @@ VIEW_CMDS = {"/start", "/help", "/menu", "/status", "/trades", "/open", "/balanc
              "/history", "/holdings", "/cooldown"}
 COMMANDS = [("menu", "Control panel"), ("status", "Bot status"), ("trades", "Open trades"),
             ("balance", "Balance"), ("pnl", "Profit and loss"), ("history", "Trade history"),
-            ("holdings", "Long-term holdings"), ("cooldown", "Coins in the 48h cooldown"),
+            ("holdings", "Long-term holdings"), ("cooldown", "Coins in the 24h cooldown"),
             ("pause", "Pause new entries"), ("resume", "Resume (clears KILL too)"),
             ("kill", "Stop the bot opening anything"), ("closeall", "Sell every open trade"),
             ("sell", "Sell one trade now: /sell SYMBOL"), ("help", "Help")]
@@ -924,7 +924,7 @@ class Bot:
         finally:
             self.pending.discard(sym)
             if sym not in self.positions:
-                # buy didn't happen: don't block the coin for 48h, just 5 minutes
+                # buy didn't happen: don't block the coin for 24h, just 5 minutes
                 self.last_buy[sym] = time.time() - SYMBOL_COOLDOWN_SEC + 300
 
     # ── ladder stop-loss (from the VAMSI bot) ──

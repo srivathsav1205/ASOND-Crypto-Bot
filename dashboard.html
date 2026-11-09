@@ -804,13 +804,6 @@
           const hit = p.hit || 0;
           const stopText = p.stop ? `$${formatNumber(p.stop, 4)} (${p.stop_label || 'Stop'})` : 'No stop before Target 1';
 
-          let timeStopText = '';
-          if (hit === 0 && p.held !== undefined) {
-            const remSec = Math.max(0, 900 - Math.floor(p.held));
-            const remMin = Math.ceil(remSec / 60);
-            timeStopText = ` | <span style="color:var(--amber-main); font-weight:500;">15m Stop: ${remMin}m left</span>`;
-          }
-
           const ladderHtml = targets.map((t, idx) => {
             const isHit = idx < hit;
             return `<span class="ladder-cell ${isHit ? 'reached' : ''}">+${t}%</span>`;
@@ -822,7 +815,7 @@
             <td>$${formatNumber(p.now, 8)}</td>
             <td class="${pnl >= 0 ? 'val-positive' : 'val-negative'}"><strong>${pnl >= 0 ? '+' : ''}$${formatNumber(pnl, 4)} (${pct >= 0 ? '+' : ''}${formatNumber(pct, 2)}%)</strong></td>
             <td>
-              <div><small>Next: $${formatNumber(p.next, 8)} | Stop: ${stopText}${timeStopText}</small></div>
+              <div><small>Next: $${formatNumber(p.next, 8)} | Stop: ${stopText}</small></div>
               <div class="ladder-strip">${ladderHtml}</div>
             </td>
             <td><small style="color:var(--text-muted);">${p.trigger || '--'}</small></td>

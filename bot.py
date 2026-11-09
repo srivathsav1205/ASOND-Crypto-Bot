@@ -76,12 +76,16 @@ SYMBOL_COOLDOWN_SEC = int(_env("SYMBOL_COOLDOWN_SEC", str(24 * 3600)))   # 24 ho
 HOLD_DRAWDOWN_PCT = Decimal(_env("HOLD_DRAWDOWN_PCT", "20"))
 # Don't buy a coin again while it sits in the long-term holdings
 SKIP_HELD_COINS = _bool("SKIP_HELD_COINS", "true")
-# Optional stop-loss: cancel TP and market-sell when price is STOP_LOSS_PCT below buy price
+# Tiered stop-loss before Target 1:
+# -1.5% drop: sell 50%
+# -2.0% drop: sell to 75% cumulative (leaving 25% remaining)
+# -3.0% drop: sell 100% of remaining
 STOP_LOSS_ENABLED = _bool("STOP_LOSS_ENABLED", "true")
-STOP_LOSS_PCT = Decimal(_env("STOP_LOSS_PCT", "1.5"))
-# 15-Minute Time Stop: sell at market if Target 1 is not reached within TIME_STOP_MINUTES
-ENABLE_TIME_STOP = _bool("ENABLE_TIME_STOP", "true")
-TIME_STOP_MINUTES = int(_env("TIME_STOP_MINUTES", "15"))
+SL_TIER1_DROP = Decimal(_env("SL_TIER1_DROP", "1.5"))
+SL_TIER2_DROP = Decimal(_env("SL_TIER2_DROP", "2.0"))
+SL_TIER3_DROP = Decimal(_env("SL_TIER3_DROP", "3.0"))
+STOP_LOSS_PCT = SL_TIER1_DROP
+ENABLE_TIME_STOP = _bool("ENABLE_TIME_STOP", "false")
 # Don't buy coins on Binance's 24h "Losers" list (24h change below MIN_24H_CHANGE_PCT)
 SKIP_24H_LOSERS = _bool("SKIP_24H_LOSERS", "true")
 MIN_24H_CHANGE_PCT = float(_env("MIN_24H_CHANGE_PCT", "0"))    # 0 = any coin that is down over 24h is skipped
@@ -638,13 +642,27 @@ class Bot:
         # older state files have no last_buy: seed the cooldown from open trades
         for sym, p in list(self.positions.items()) + list(self.holdings.items()):
             self.last_buy[sym] = max(self.last_buy.get(sym, 0), float(p.get("opened_at", 0)))
-        # synchronize stop_loss on existing ladder positions if no targets hit yet
-        if STOP_LOSS_ENABLED and STOP_LOSS_PCT > 0:
+        # synchronize tiered stop_loss on existing ladder positions if no targets hit yet
+        if STOP_LOSS_ENABLED:
             for sym, p in self.positions.items():
+                if "orig_qty" not in p:
+                    p["orig_qty"] = p.get("qty")
+                if "orig_cost" not in p:
+                    p["orig_cost"] = p.get("cost")
+                if "sl_tier" not in p:
+                    p["sl_tier"] = 0
                 if p.get("mode") == "ladder" and p.get("targets_hit", 0) == 0:
+                    tier = p.get("sl_tier", 0)
                     buy = Decimal(p["buy_price"])
-                    p["stop_label"] = f"-{fmt(STOP_LOSS_PCT)}%"
-                    p["stop_price"] = fmt(buy * (Decimal(1) - STOP_LOSS_PCT / Decimal(100)))
+                    if tier == 0:
+                        p["stop_label"] = f"-{fmt(SL_TIER1_DROP)}% (50%)"
+                        p["stop_price"] = fmt(buy * (Decimal(1) - SL_TIER1_DROP / Decimal(100)))
+                    elif tier == 1:
+                        p["stop_label"] = f"-{fmt(SL_TIER2_DROP)}% (75%)"
+                        p["stop_price"] = fmt(buy * (Decimal(1) - SL_TIER2_DROP / Decimal(100)))
+                    elif tier == 2:
+                        p["stop_label"] = f"-{fmt(SL_TIER3_DROP)}% (All)"
+                        p["stop_price"] = fmt(buy * (Decimal(1) - SL_TIER3_DROP / Decimal(100)))
         log.info("loaded %d open positions, %d holdings from %s",
                  len(self.positions), len(self.holdings), STATE_FILE)
         if self.startup_notes:
@@ -958,12 +976,12 @@ class Bot:
         return self.target_price(p, k - 1), f"+{fmt(T[k - 2])}% (T{k - 1}, after T{k})"
 
     async def _open_ladder(self, sym, f, qty, price, cost, trigger):
-        stop = floor_step(price * (1 - STOP_LOSS_PCT / 100), f["tick"]) \
-            if STOP_LOSS_ENABLED and STOP_LOSS_PCT > 0 else None
-        pos = {"symbol": sym, "mode": "ladder", "qty": fmt(qty), "buy_price": fmt(price),
-               "cost": fmt(cost), "tp_price": fmt(ceil_step(price * (1 + LADDER_TARGETS[0] / 100), f["tick"])),
-               "targets_hit": 0, "stop_price": fmt(stop) if stop else None,
-               "stop_label": f"-{fmt(STOP_LOSS_PCT)}%" if stop else None,
+        stop = floor_step(price * (1 - SL_TIER1_DROP / 100), f["tick"]) \
+            if STOP_LOSS_ENABLED else None
+        pos = {"symbol": sym, "mode": "ladder", "qty": fmt(qty), "orig_qty": fmt(qty), "buy_price": fmt(price),
+               "cost": fmt(cost), "orig_cost": fmt(cost), "tp_price": fmt(ceil_step(price * (1 + LADDER_TARGETS[0] / 100), f["tick"])),
+               "targets_hit": 0, "sl_tier": 0, "stop_price": fmt(stop) if stop else None,
+               "stop_label": f"-{fmt(SL_TIER1_DROP)}% (50%)" if stop else None,
                "order_id": None, "stop_order_price": None,
                "targets": [fmt(t) for t in LADDER_TARGETS], "first_stop_pct": fmt(LADDER_FIRST_STOP_PCT),
                "stop_mode": LADDER_STOP_MODE,
@@ -1072,25 +1090,29 @@ class Bot:
             return
         px = Decimal(str(price))
         drop = (buy - px) / buy * 100      # % below buy price
-        now_ts = time.time()
-        age_sec = now_ts - float(p.get("opened_at", now_ts))
         if p.get("mode") == "ladder":
             stop = p.get("stop_price")
-            if stop and px <= Decimal(stop):
+            if p.get("targets_hit", 0) > 0 and stop and px <= Decimal(stop):
                 action = "ladder_sell"
             elif self.targets_reached(p, px) > p.get("targets_hit", 0):
                 action = "target"
-            elif ENABLE_TIME_STOP and TIME_STOP_MINUTES > 0 and p.get("targets_hit", 0) == 0 and age_sec >= TIME_STOP_MINUTES * 60:
-                action = "time_stop"
-            elif STOP_LOSS_ENABLED and STOP_LOSS_PCT > 0 and p.get("targets_hit", 0) == 0 and drop >= STOP_LOSS_PCT:
-                action = "ladder_sell"
+            elif STOP_LOSS_ENABLED and p.get("targets_hit", 0) == 0:
+                tier = p.get("sl_tier", 0)
+                if drop >= SL_TIER3_DROP:
+                    action = "sl_tier3"
+                elif drop >= SL_TIER2_DROP and tier < 2:
+                    action = "sl_tier2"
+                elif drop >= SL_TIER1_DROP and tier < 1:
+                    action = "sl_tier1"
+                elif not stop and HOLD_DRAWDOWN_PCT > 0 and drop >= HOLD_DRAWDOWN_PCT:
+                    action = "hold"
+                else:
+                    return
             elif not stop and HOLD_DRAWDOWN_PCT > 0 and drop >= HOLD_DRAWDOWN_PCT:
                 action = "hold"
             else:
                 return
-        elif ENABLE_TIME_STOP and TIME_STOP_MINUTES > 0 and age_sec >= TIME_STOP_MINUTES * 60:
-            action = "time_stop"
-        elif STOP_LOSS_ENABLED and STOP_LOSS_PCT > 0 and drop >= STOP_LOSS_PCT:
+        elif STOP_LOSS_ENABLED and drop >= SL_TIER3_DROP:
             action = "stoploss"
         elif HOLD_DRAWDOWN_PCT > 0 and drop >= HOLD_DRAWDOWN_PCT:
             action = "hold"
@@ -1139,13 +1161,21 @@ class Bot:
                 return
             if await self._cancel_order(sym, p) == "filled":
                 return
-            if action == "ladder_sell":
-                label = p.get("stop_label") or (f"-{fmt(STOP_LOSS_PCT)}%" if STOP_LOSS_ENABLED else "")
-                title = f"LADDER STOP {label}".strip()
-                if await self.market_exit(sym, p, "🔴" if drop > 0 else "🟢", title):
+            if action == "sl_tier1":
+                title = f"STOP-LOSS -{fmt(SL_TIER1_DROP)}% (Sold 50%)"
+                if await self.partial_exit(sym, p, 1, title):
                     return
-            elif action == "time_stop":
-                title = f"TIME STOP ({TIME_STOP_MINUTES}m)"
+            elif action == "sl_tier2":
+                title = f"STOP-LOSS -{fmt(SL_TIER2_DROP)}% (Sold to 75%, 25% rem)"
+                if await self.partial_exit(sym, p, 2, title):
+                    return
+            elif action == "sl_tier3":
+                title = f"STOP-LOSS -{fmt(SL_TIER3_DROP)}% (Sold 100%)"
+                if await self.market_exit(sym, p, "🔴", title):
+                    return
+            elif action == "ladder_sell":
+                label = p.get("stop_label") or "STOP"
+                title = f"LADDER STOP {label}".strip()
                 if await self.market_exit(sym, p, "🔴" if drop > 0 else "🟢", title):
                     return
             elif action == "stoploss":
@@ -1157,6 +1187,89 @@ class Bot:
             self.tg.send(f"🔴 Exit ({action}) failed for {sym}: {e}", key=f"exit{sym}", every=120)
         finally:
             self.exiting.discard(sym)
+
+    async def partial_exit(self, sym, p, target_tier: int, title: str):
+        """Partially sell a position (Tier 1: sell 50%; Tier 2: sell to 75% cumulative)."""
+        f = self.meta.get(sym) or self.filters.get(sym) or {"step": Decimal("0.00000001"), "min_qty": Decimal("0"), "min_notional": Decimal("0"), "tick": Decimal("0.00000001")}
+        orig_qty = Decimal(str(p.get("orig_qty", p["qty"])))
+        orig_cost = Decimal(str(p.get("orig_cost", p["cost"])))
+        cur_qty = Decimal(str(p["qty"]))
+        buy_px = Decimal(str(p["buy_price"]))
+        lp = Decimal(str(self.last_price.get(sym, buy_px)))
+
+        if target_tier == 1:
+            target_rem = orig_qty * Decimal("0.50")
+        elif target_tier == 2:
+            target_rem = orig_qty * Decimal("0.25")
+        else:
+            return False
+
+        sell_qty = cur_qty - target_rem
+        if sell_qty <= 0:
+            p["sl_tier"] = target_tier
+            self.save_state()
+            return True
+
+        if f.get("step"):
+            sell_qty = floor_step(sell_qty, f["step"])
+            rem_qty = cur_qty - sell_qty
+            if f.get("min_qty") and 0 < rem_qty < f["min_qty"]:
+                sell_qty = cur_qty
+
+        if sell_qty < f.get("min_qty", Decimal(0)) or sell_qty * lp < f.get("min_notional", Decimal(0)):
+            log.warning("partial sell %s %s USDT below Binance min notional", sym, fmt(sell_qty * lp))
+            return False
+
+        if DRY_RUN:
+            proceeds = sell_qty * lp
+        else:
+            r = await self.api.market_sell(sym, sell_qty)
+            proceeds = Decimal(r["cummulativeQuoteQty"])
+            if Decimal(r.get("executedQty", "0")) <= 0:
+                raise RuntimeError(f"partial market sell returned 0 qty (status {r.get('status')})")
+            lp = proceeds / Decimal(r["executedQty"])
+
+        cost_sold = (sell_qty / orig_qty) * orig_cost
+        pnl = proceeds - cost_sold
+        pct = (proceeds / cost_sold - 1) * 100 if cost_sold > 0 else Decimal(0)
+
+        new_qty = cur_qty - sell_qty
+        new_cost = Decimal(str(p["cost"])) - cost_sold
+        p["qty"] = fmt(new_qty)
+        p["cost"] = fmt(max(Decimal(0), new_cost))
+        p["sl_tier"] = target_tier
+
+        tick = f.get("tick", Decimal("0.00000001"))
+        if target_tier == 1:
+            p["stop_label"] = f"-{fmt(SL_TIER2_DROP)}% (75%)"
+            p["stop_price"] = fmt(floor_step(buy_px * (Decimal(1) - SL_TIER2_DROP / Decimal(100)), tick))
+        elif target_tier == 2:
+            p["stop_label"] = f"-{fmt(SL_TIER3_DROP)}% (All)"
+            p["stop_price"] = fmt(floor_step(buy_px * (Decimal(1) - SL_TIER3_DROP / Decimal(100)), tick))
+
+        key = "tp_hits" if pnl >= 0 else "sl_hits"
+        self.stats[key] = self.stats.get(key, 0) + 1
+        self.stats["realized"] = fmt((Decimal(self.stats["realized"]) + pnl).quantize(Decimal("0.000001")))
+
+        self.history.append({
+            "t": int(time.time()),
+            "sym": sym,
+            "pnl": fmt(pnl.quantize(Decimal("0.000001"))),
+            "pct": fmt(pct.quantize(Decimal("0.01"))),
+            "reason": title,
+            "dry": DRY_RUN
+        })
+        self.save_state()
+
+        rem_pct_str = "50%" if target_tier == 1 else "25%"
+        msg = (f"🔴 <b>{title} {sym}</b>{' [DRY]' if DRY_RUN else ''} | "
+               f"Sold {fmt(sell_qty)} @ ~{fmt(lp)} | "
+               f"P/L ≈ {pnl:+.4f} USDT ({pct:+.2f}%) | "
+               f"{rem_pct_str} remaining ({p['qty']} coins)")
+        log.info(msg)
+        add_event(msg)
+        self.tg.send(msg)
+        return True
 
     async def market_exit(self, sym, p, emoji, title):
         """Market-sell the whole position. False if Binance won't accept it (below minimum)."""
@@ -1660,8 +1773,7 @@ class Bot:
                 "Stop after a target": (f"one target behind (T1 → +{fmt(LADDER_FIRST_STOP_PCT)}%)"
                                         if LADDER_STOP_MODE == "previous" else "at the target hit"),
                 "Sell at last target": LADDER_SELL_AT_LAST, "Stop order on Binance": LADDER_EXCHANGE_STOP,
-                "Stop-loss before T1": f"-{fmt(STOP_LOSS_PCT)}%" if STOP_LOSS_ENABLED else "off",
-                "15m Time Stop": f"{TIME_STOP_MINUTES} min (if no T1)" if ENABLE_TIME_STOP else "off",
+                "Stop-loss before T1": f"-{fmt(SL_TIER1_DROP)}% (50%) / -{fmt(SL_TIER2_DROP)}% (75%) / -{fmt(SL_TIER3_DROP)}% (All)" if STOP_LOSS_ENABLED else "off",
                 "Long-term hold at": f"-{fmt(HOLD_DRAWDOWN_PCT)}%" if HOLD_DRAWDOWN_PCT > 0 else "off",
                 "Skip coins in holdings": SKIP_HELD_COINS,
                 "Skip 24h losers": f"yes, below {MIN_24H_CHANGE_PCT:g}%" if SKIP_24H_LOSERS else "no",
@@ -1793,8 +1905,7 @@ class Bot:
                f"{' · stop on Binance' if LADDER_EXCHANGE_STOP else ''}"
                f"{(' · stop trails 1 target (T1 → +' + fmt(LADDER_FIRST_STOP_PCT) + '%)') if LADDER_STOP_MODE == 'previous' else ''}"
                if EXIT_MODE == "ladder" else f"TP +{fmt(TAKE_PROFIT_PCT)}%") + " · "
-            f"{('stop-loss -' + fmt(STOP_LOSS_PCT) + '%') if STOP_LOSS_ENABLED else 'no stop-loss before T1' if EXIT_MODE == 'ladder' else 'no stop-loss'}"
-            f"{(' · 15m time stop') if ENABLE_TIME_STOP else ''}\n"
+            f"{('stop-loss -' + fmt(SL_TIER1_DROP) + '% (50%) / -' + fmt(SL_TIER2_DROP) + '% (75%) / -' + fmt(SL_TIER3_DROP) + '% (All)') if STOP_LOSS_ENABLED else 'no stop-loss before T1' if EXIT_MODE == 'ladder' else 'no stop-loss'}\n"
             f"Hold at -{fmt(HOLD_DRAWDOWN_PCT)}% (TP cancelled, kept long-term) · "
             f"Cooldown {SYMBOL_COOLDOWN_SEC // 3600}h per coin"
             f"{(' · skip 24h losers (below ' + format(MIN_24H_CHANGE_PCT, 'g') + '%)') if SKIP_24H_LOSERS else ''}\n"

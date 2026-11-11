@@ -68,7 +68,7 @@ TG_SUMMARY_MIN = int(_env("TELEGRAM_SUMMARY_MINUTES", "60"))  # activity summary
 DRY_RUN = _bool("DRY_RUN", "true")
 TRADE_USDT = Decimal(_env("TRADE_USDT", "5"))
 PUMP_1M_PCT = float(_env("PUMP_1M_PCT", "5"))
-PUMP_1S_PCT = float(_env("PUMP_1S_PCT", "1"))
+PUMP_1S_PCT = float(_env("PUMP_1S_PCT", "1.5"))
 TAKE_PROFIT_PCT = Decimal(_env("TAKE_PROFIT_PCT", "2"))
 MAX_OPEN_TRADES = int(_env("MAX_OPEN_TRADES", "20"))
 SYMBOL_COOLDOWN_SEC = int(_env("SYMBOL_COOLDOWN_SEC", str(24 * 3600)))   # 24 hours
@@ -107,8 +107,12 @@ if LADDER_STOP_MODE not in ("previous", "same"):
 LADDER_FIRST_STOP_PCT = Decimal(_env("LADDER_FIRST_STOP_PCT", "0.2"))   # stop after Target 1 (previous mode)
 LADDER_SELL_AT_LAST = _bool("LADDER_SELL_AT_LAST", "true")      # sell 100% at the last target
 LADDER_EXCHANGE_STOP = _bool("LADDER_EXCHANGE_STOP", "true")    # real STOP_LOSS order on Binance
-MIN_QUOTE_VOL_1S = float(_env("MIN_QUOTE_VOL_1S", "0"))   # USDT traded inside the 1s candle
-MIN_QUOTE_VOL_1M = float(_env("MIN_QUOTE_VOL_1M", "0"))   # USDT traded inside the 1m candle
+MIN_QUOTE_VOL_1S = float(_env("MIN_QUOTE_VOL_1S", "1000"))   # USDT traded inside the 1s candle
+MIN_QUOTE_VOL_1M = float(_env("MIN_QUOTE_VOL_1M", "5000"))   # USDT traded inside the 1m candle
+MIN_24H_VOLUME_USDT = float(_env("MIN_24H_VOLUME_USDT", _env("MIN_24H_QUOTE_VOLUME_USDT", "500000")))  # 24h volume min ($500k USDT)
+MAX_UPPER_WICK_RATIO = float(_env("MAX_UPPER_WICK_RATIO", "0.33"))  # max 33% pullback from candle high
+BTC_REGIME_FILTER_ENABLED = _bool("BTC_REGIME_FILTER_ENABLED", _env("ENABLE_BTC_REGIME_GATE", "true"))
+MAX_BTC_DROP_15M_PCT = float(_env("MAX_BTC_DROP_15M_PCT", "0.40"))  # max BTC drop allowed in 15m (0.4%)
 
 QUOTE = "USDT"
 EXCLUDE_SUFFIX = _env("EXCLUDE_SUFFIX", "BUSDT")                # bStocks pattern
@@ -607,7 +611,9 @@ class Bot:
         self._sig_seen = collections.OrderedDict()
         self.free_usdt = None      # cached for the dashboard
         self.open24 = {}           # symbol -> 24h open price (Binance gainers / losers list)
+        self.vol24 = {}            # symbol -> 24h quote volume (USDT)
         self.open24_at = 0
+        self.btc_price_history = collections.deque(maxlen=1800)  # (time, price) for BTC regime check
         self.stats = {"buys": 0, "tp_hits": 0, "sl_hits": 0, "held": 0, "realized": "0"}
         self.started = time.time()
         self.load_state()
@@ -797,6 +803,8 @@ class Bot:
         rows = await self.api.tickers_24h()
         self.open24 = {r["symbol"]: float(r["openPrice"]) for r in rows
                        if r.get("symbol", "").endswith(QUOTE) and float(r.get("openPrice", 0) or 0) > 0}
+        self.vol24 = {r["symbol"]: float(r.get("quoteVolume", 0) or 0) for r in rows
+                      if r.get("symbol", "").endswith(QUOTE)}
         self.open24_at = time.time()
 
     async def ticker_loop(self):
@@ -807,6 +815,24 @@ class Bot:
             except Exception as e:
                 log.warning("24h ticker refresh failed: %s", e)
 
+    def btc_change_15m(self, window_sec=900):
+        if len(self.btc_price_history) < 2:
+            return None
+        now = time.time()
+        if now - self.btc_price_history[0][0] < 60:
+            return None
+        curr_price = self.btc_price_history[-1][1]
+        target_time = now - window_sec
+        base_price = self.btc_price_history[0][1]
+        for t, p in self.btc_price_history:
+            if t <= target_time:
+                base_price = p
+            else:
+                break
+        if base_price <= 0:
+            return None
+        return (curr_price / base_price - 1) * 100
+
     def on_kline(self, sym, k):
         try:
             o, c = float(k["o"]), float(k["c"])
@@ -815,6 +841,8 @@ class Bot:
         self.last_price[sym] = c
         if sym in self.positions:
             self.check_exit(sym, c)
+        if sym == "BTCUSDT":
+            self.btc_price_history.append((time.time(), c))
         if o <= 0:
             return
         iv = k.get("i")
@@ -839,6 +867,21 @@ class Bot:
             return self._signal(sym, iv, chg, c, k, "skipped: cooldown")
         if SKIP_HELD_COINS and sym in self.holdings:
             return self._signal(sym, iv, chg, c, k, "skipped: in holdings")
+        if MIN_24H_VOLUME_USDT > 0:
+            v24 = self.vol24.get(sym, 0)
+            if v24 < MIN_24H_VOLUME_USDT:
+                return self._signal(sym, iv, chg, c, k, f"skipped: low 24h vol (${v24/1000:.0f}k)")
+        if MAX_UPPER_WICK_RATIO > 0:
+            h = float(k.get("h", c))
+            pump_gain = h - o
+            if pump_gain > 0:
+                wick_ratio = (h - c) / pump_gain
+                if wick_ratio > MAX_UPPER_WICK_RATIO:
+                    return self._signal(sym, iv, chg, c, k, f"skipped: upper wick ({wick_ratio*100:.0f}%)")
+        if BTC_REGIME_FILTER_ENABLED and sym != "BTCUSDT":
+            btc_chg = self.btc_change_15m(900)
+            if btc_chg is not None and btc_chg < -MAX_BTC_DROP_15M_PCT:
+                return self._signal(sym, iv, chg, c, k, f"skipped: BTC dumping ({btc_chg:+.2f}% 15m)")
         if SKIP_24H_LOSERS:
             ch24 = self.change24(sym, c)
             if ch24 is None or time.time() - self.open24_at > 300:
@@ -1768,7 +1811,10 @@ class Bot:
             "settings": {
                 "Mode": "DRY RUN" if DRY_RUN else "LIVE", "Trade size (USDT)": fmt(TRADE_USDT),
                 "Buy signal": f"1m ≥ {PUMP_1M_PCT}% or 1s ≥ {PUMP_1S_PCT}%",
-                "Min volume in candle (1s / 1m)": f"{MIN_QUOTE_VOL_1S} / {MIN_QUOTE_VOL_1M} USDT",
+                "Min volume in candle (1s / 1m)": f"{MIN_QUOTE_VOL_1S:g} / {MIN_QUOTE_VOL_1M:g} USDT",
+                "Min 24h volume": f"${MIN_24H_VOLUME_USDT:,.0f} USDT" if MIN_24H_VOLUME_USDT > 0 else "off",
+                "Max upper wick": f"{MAX_UPPER_WICK_RATIO * 100:g}% of pump" if MAX_UPPER_WICK_RATIO > 0 else "off",
+                "BTC regime gate": f"active (-{MAX_BTC_DROP_15M_PCT:g}% 15m cap)" if BTC_REGIME_FILTER_ENABLED else "off",
                 "Max open trades": MAX_OPEN_TRADES, "Cooldown per coin": f"{SYMBOL_COOLDOWN_SEC / 3600:g} h",
                 "Exit mode": EXIT_MODE,
                 "Ladder targets": " / ".join("+" + fmt(t) + "%" for t in LADDER_TARGETS),

@@ -1295,6 +1295,7 @@ class Bot:
 
     def finish_sell(self, sym, p, proceeds: Decimal, emoji, title, detail):
         self.positions.pop(sym, None)
+        self.last_buy.pop(sym, None)  # do not keep sold coins in cooldown
         pnl = proceeds - Decimal(p["cost"])
         key = "tp_hits" if pnl >= 0 else "sl_hits"
         self.stats[key] = self.stats.get(key, 0) + 1
@@ -1404,6 +1405,7 @@ class Bot:
         p = self.positions.pop(sym, None)
         if p is None:
             return
+        self.last_buy.pop(sym, None)  # do not keep sold coins in cooldown
         pnl = proceeds - Decimal(p["cost"])
         self.stats["tp_hits"] += 1
         self.stats["realized"] = fmt((Decimal(self.stats["realized"]) + pnl).quantize(Decimal("0.000001")))
